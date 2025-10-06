@@ -1,0 +1,43 @@
+{
+  "name": "@hexlet/code",
+  "version": "1.0.0",
+  "description": "Page loader utility",
+  "main": "src/index.js",
+  "bin": {
+    "page-loader": "bin/page-loader.js"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "jest",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SergMuhin/fullstack-javascript-project-4.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SergMuhin/fullstack-javascript-project-4/issues"
+  },
+  "homepage": "https://github.com/SergMuhin/fullstack-javascript-project-4#readme",
+  "dependencies": {
+    "axios": "^1.12.2",
+    "cheerio": "^1.1.2",
+    "commander": "^14.0.1",
+    "debug": "^4.4.3",
+    "listr": "^0.14.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.4",
+    "@babel/preset-env": "^7.28.3",
+    "babel-jest": "^30.2.0",
+    "eslint": "^8.57.1",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.32.0",
+    "jest": "^30.2.0",
+    "nock": "^14.0.10"
+  }
+}
