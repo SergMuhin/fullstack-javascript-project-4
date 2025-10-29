@@ -38,38 +38,56 @@ const generateResourceFilename = (url) => {
   return filename;
 };
 
-const downloadResource = (resourceUrl, outputDir, resourceType = 'binary') => {
+const downloadResource = async (
+  resourceUrl,
+  outputDir,
+  resourceType = 'binary'
+) => {
   log('Downloading resource: %s', resourceUrl);
 
   // Determine response type based on resource type
   const responseType = resourceType === 'HTML' ? 'text' : 'arraybuffer';
 
-  return axios
-    .get(resourceUrl, { responseType })
-    .then((response) => {
-      const filename = generateResourceFilename(resourceUrl);
-      const filepath = path.join(outputDir, filename);
+  try {
+    const response = await axios.get(resourceUrl, { responseType });
+    const filename = generateResourceFilename(resourceUrl);
+    const filepath = path.join(outputDir, filename);
 
-      const size =
-        responseType === 'text'
-          ? Buffer.byteLength(response.data, 'utf-8')
-          : response.data.length;
+    // Ensure output directory exists
+    await fs.mkdir(outputDir, { recursive: true });
 
-      log('Resource downloaded, size: %d bytes, saving as: %s', size, filename);
+    const size =
+      responseType === 'text'
+        ? Buffer.byteLength(response.data, 'utf-8')
+        : response.data.length;
 
-      // For text resources, save with UTF-8 encoding
-      const writeOptions = responseType === 'text' ? 'utf-8' : undefined;
-      return fs.writeFile(filepath, response.data, writeOptions).then(() => {
-        log('Resource saved successfully: %s', filepath);
-        return filename;
-      });
-    })
-    .catch((error) => {
-      log('Failed to download resource %s: %s', resourceUrl, error.message);
+    log('Resource downloaded, size: %d bytes, saving as: %s', size, filename);
+
+    // For text resources, save with UTF-8 encoding
+    const writeOptions = responseType === 'text' ? 'utf-8' : undefined;
+    await fs.writeFile(filepath, response.data, writeOptions);
+
+    // Verify file was created
+    try {
+      await fs.access(filepath);
+      log('Resource saved successfully: %s', filepath);
+    } catch (accessError) {
+      log('Warning: File written but not accessible: %s', filepath);
+      throw new Error(`Failed to verify resource file creation: ${filepath}`);
+    }
+
+    return filename;
+  } catch (error) {
+    log('Failed to download resource %s: %s', resourceUrl, error.message);
+    if (error.response) {
       throw new Error(
-        `Failed to download resource ${resourceUrl}: ${error.message}`
+        `Failed to download resource ${resourceUrl}: HTTP ${error.response.status}`
       );
-    });
+    }
+    throw new Error(
+      `Failed to download resource ${resourceUrl}: ${error.message}`
+    );
+  }
 };
 
 const isLocalResource = (url, baseUrl) => {
