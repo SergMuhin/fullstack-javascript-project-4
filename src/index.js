@@ -50,7 +50,11 @@ const downloadResource = async (
 
   try {
     const response = await axios.get(resourceUrl, { responseType });
-    const filename = generateResourceFilename(resourceUrl);
+    let filename = generateResourceFilename(resourceUrl);
+    // Ensure HTML resources have .html extension when missing
+    if (resourceType === 'HTML' && path.extname(filename) === '') {
+      filename = `${filename}.html`;
+    }
     const filepath = path.join(outputDir, filename);
 
     // Ensure output directory exists
@@ -152,25 +156,36 @@ const processResources = async (html, baseUrl, filesDir) => {
   // Collect links to HTML files (a[href])
   $('a[href]').each((i, element) => {
     const href = $(element).attr('href');
-    if (href && isLocalResource(href, baseUrl)) {
-      try {
-        const resourceUrl = new URL(href, baseUrl);
-        // Check if it's an HTML file (ends with .html or has no extension but same domain)
-        const pathname = resourceUrl.pathname.toLowerCase();
-        if (pathname.endsWith('.html') || pathname.endsWith('.htm')) {
-          const resourceUrlString = resourceUrl.href;
-          log('Found local HTML: %s', resourceUrlString);
-          resources.push({
-            url: resourceUrlString,
-            element,
-            type: 'HTML',
-            attribute: 'href',
-          });
-        }
-      } catch (error) {
-        log('Invalid URL for HTML link: %s - %s', href, error.message);
-        // Invalid URL, skip
+    if (!href || !isLocalResource(href, baseUrl)) {
+      return;
+    }
+
+    try {
+      const resourceUrl = new URL(href, baseUrl);
+      const pathname = resourceUrl.pathname.toLowerCase();
+
+      // Treat as HTML when:
+      // 1) Explicit .html/.htm extension, or
+      // 2) No extension (e.g. "/blog/about"), or
+      // 3) Trailing slash (directory-style HTML page)
+      const hasHtmlExtension =
+        pathname.endsWith('.html') || pathname.endsWith('.htm');
+      const hasNoExtension = path.extname(pathname) === '';
+      const isDirectoryLike = pathname.endsWith('/');
+
+      if (hasHtmlExtension || hasNoExtension || isDirectoryLike) {
+        const resourceUrlString = resourceUrl.href;
+        log('Found local HTML: %s', resourceUrlString);
+        resources.push({
+          url: resourceUrlString,
+          element,
+          type: 'HTML',
+          attribute: 'href',
+        });
       }
+    } catch (error) {
+      log('Invalid URL for HTML link: %s - %s', href, error.message);
+      // Invalid URL, skip
     }
   });
 
@@ -287,7 +302,11 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
           try {
             const resourceUrlObj = new URL(resourceUrl, url);
             const pathname = resourceUrlObj.pathname.toLowerCase();
-            return pathname.endsWith('.html') || pathname.endsWith('.htm');
+            const hasHtmlExtension =
+              pathname.endsWith('.html') || pathname.endsWith('.htm');
+            const hasNoExtension = path.extname(pathname) === '';
+            const isDirectoryLike = pathname.endsWith('/');
+            return hasHtmlExtension || hasNoExtension || isDirectoryLike;
           } catch {
             return false;
           }
