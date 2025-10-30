@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander';
-import pageLoader from '../src/index.js';
+import { Command } from 'commander'
+import pageLoader from '../src/index.js'
 
-const program = new Command();
+const program = new Command()
 
 program
   .name('page-loader')
@@ -14,17 +14,18 @@ program
   .option('-d, --debug', 'enable debug logging')
   .action(async (url, options) => {
     if (options.debug) {
-      process.env.DEBUG = 'page-loader';
+      process.env.DEBUG = 'page-loader'
     }
 
     try {
-      const filepath = await pageLoader(url, options.output);
-      console.log(filepath);
-      process.exit(0);
-    } catch (error) {
-      console.error('Error:', error.message);
-      process.exit(1);
+      const filepath = await pageLoader(url, options.output)
+      console.log(filepath)
+      process.exit(0)
     }
-  });
+    catch (error) {
+      console.error('Error:', error.message)
+      process.exit(1)
+    }
+  })
 
-program.parse();
+program.parse()
