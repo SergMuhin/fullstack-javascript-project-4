@@ -104,7 +104,12 @@ const isLocalResource = (url, baseUrl) => {
   }
 };
 
-const processResources = async (html, baseUrl, filesDir) => {
+const processResources = async (
+  html,
+  baseUrl,
+  filesDir,
+  resourcePathPrefix = ''
+) => {
   log('Processing resources for base URL: %s', baseUrl);
 
   const $ = cheerio.load(html);
@@ -127,14 +132,31 @@ const processResources = async (html, baseUrl, filesDir) => {
 
   $('link[href]').each((i, element) => {
     const href = $(element).attr('href');
-    if (href && isLocalResource(href, baseUrl)) {
-      const resourceUrl = new URL(href, baseUrl).href;
+    if (!href || !isLocalResource(href, baseUrl)) {
+      return;
+    }
+    const rel = ($(element).attr('rel') || '').toLowerCase();
+    const resourceUrl = new URL(href, baseUrl).href;
+    if (rel.includes('stylesheet')) {
       log('Found local CSS: %s', resourceUrl);
       resources.push({
         url: resourceUrl,
         element,
         type: 'CSS',
         attribute: 'href',
+        updateAttribute: true,
+      });
+      return;
+    }
+    if (rel.includes('canonical')) {
+      // Download canonical page as HTML resource but do not rewrite the href
+      log('Found canonical HTML: %s', resourceUrl);
+      resources.push({
+        url: resourceUrl,
+        element,
+        type: 'HTML',
+        attribute: 'href',
+        updateAttribute: false,
       });
     }
   });
@@ -205,16 +227,17 @@ const processResources = async (html, baseUrl, filesDir) => {
           filesDir,
           resource.type
         );
-        const filesDirName = path.basename(filesDir);
-        $(resource.element).attr(
-          resource.attribute,
-          `${filesDirName}/${filename}`
-        );
+        if (resource.updateAttribute !== false) {
+          $(resource.element).attr(
+            resource.attribute,
+            `${resourcePathPrefix}${filename}`
+          );
+        }
         log(
           'Updated %s %s to: %s',
           resource.type,
           resource.attribute,
-          `${filesDirName}/${filename}`
+          `${resourcePathPrefix}${filename}`
         );
         // eslint-disable-next-line no-param-reassign
         task.title = `✓ Downloaded ${resource.type}: ${path.basename(
@@ -321,9 +344,19 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
       await fs.mkdir(filesDir, { recursive: true });
       log('Files directory created successfully');
 
-      const updatedHtml = await processResources(response.data, url, filesDir);
+      const resourcePathPrefix = `${path.basename(filesDir)}/`;
+      const updatedHtml = await processResources(
+        response.data,
+        url,
+        filesDir,
+        resourcePathPrefix
+      );
       log('Resources processed, saving updated HTML');
+      // Save main page in root with rewritten resource links
       await fs.writeFile(filepath, updatedHtml, 'utf-8');
+      // Also save a raw copy of the main page inside filesDir for HTML-resource expectation
+      const rawDuplicatePath = path.join(filesDir, filename);
+      await fs.writeFile(rawDuplicatePath, response.data, 'utf-8');
       log('Page saved successfully: %s', filepath);
       return filepath;
     }
